@@ -1,5 +1,5 @@
 # Transverse-Ising-model-ground-state-energy
-My attempt to create a code the provides the ground state energy for transverse ising model using pennylane based on a problem for the Hackathon challenge in Second Quantum Computing School at ICTP-SAIRF
+My attempt to create a code the provides the ground state energy for transverse ising model using pennylane based on the following problem for the Hackathon challenge in Second Quantum Computing School at ICTP-SAIRF
 
  Consider a spin chain consisting of N spin - 1/2 particles, where each spin can point
 either in the positive or negative z-direction. Additionally, an external magnetic field is
