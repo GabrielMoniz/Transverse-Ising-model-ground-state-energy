@@ -1,0 +1,66 @@
+!pip install pennylane
+
+import pennylane as qml
+from pennylane import numpy as pnp
+import matplotlib.pyplot as plt
+import  random 
+
+def Ising_hamiltonian(h,N):
+  #defining the interaction term sum Z_iZ_i+1#
+  O1=0
+  for i in range(N):
+     O1+= qml.Z(i) @ qml.Z(i+1)
+  O1 += qml.Z(3) @ qml.Z(0)
+  #defining the linear term sum X_i#
+  O2=0
+  for i in range(N):
+     O2+= qml.X(i)
+  O2 =h*O2
+  #defining the given hamiltonian#
+  coeffs = [-1, -1]
+  obs = [O1, O2]
+  H = qml.Hamiltonian(coeffs, obs)
+  return H
+
+def ground_energy(h,N):
+  #here I found the quantum circuit with ajustable parameters theta that are going to be tuned to to generate the state which will be used to calculate the expectation value#
+  def c(theta):
+    #I introduced 3 rotation since a general SU(2) element can be written as U=R_x(phi_1)R_Z(phi_2)R_x(phi_3), so we can explore state space accessible trough local transformation
+    for i in range(N):
+      qml.RX(theta[i], wires=i)
+      qml.RZ(theta[i+N], wires=i)
+      qml.RX(theta[i+2*N], wires=i)
+    #Here we introduces entangling gates to be able to acess a much range of states in state space (and hope that this extension includes the ground state)
+    for i in range(N-1):
+      qml.Hadamard(wires=i)
+      qml.CNOT(wires=[i, i+1])
+    qml.CNOT(wires=[N-1,0])
+   
+    return qml.expval(Ising_hamiltonian(h,N))
+  #now we must load the quantum device to construct Qnodes
+  dev = qml.device("default.qubit", wires=N+1)
+  circuit_VQE = qml.QNode(c, dev)
+  #this defines the coeficient multiplying the gradient in the gradient descendant method, which must be tunned mannually. A big step size may lead to non-convergent algorithm and a low one may converge to a point which is not a minimal point
+  opt = qml.GradientDescentOptimizer(stepsize=0.06)
+  #this creates a starting point for the parameters, here I choose them to be random numbers because each time we run the code it will choose a different starting point 
+  # then if you run the code a couple of times the probability of ending up in a local minima every time gets really low. And you must choose the lowest outcome between all the runs 
+  l=[]
+  for i in range(3*N):
+    l.append(random.random())
+  theta = pnp.array(l, requires_grad=True)
+
+  delta_E = 10
+  results= []
+  #defines how close two consectuive results must be to consider the result converged
+  tol = 1e-5
+  # run the VQE optimization loop until convergence threshold is reached
+  while abs(delta_E) > tol:
+    theta, prev_energy = opt.step_and_cost(circuit_VQE, theta)
+    new_energy = circuit_VQE(theta)
+   
+    delta_E = new_energy - prev_energy
+    
+    results.append(new_energy)
+    
+  qml.draw_mpl(circuit_VQE)(theta)
+  return new_energy
